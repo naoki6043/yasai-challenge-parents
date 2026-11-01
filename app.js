@@ -6,10 +6,11 @@ const get=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(PREFIX+key
 const save=(key,value)=>localStorage.setItem(PREFIX+key,JSON.stringify(value));
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const recipeImages={'小松菜お浸し':'images/recipe_01.jpeg'};
-let remoteRecipes=[],remoteNotices=[],remoteLoaded=false,loadError='';
+let remoteRecipes=[],remoteNotices=[],remoteLoaded=false,loadError='',contentSource='snapshot';
 let page='home',vegSel=null,recipeSel=null,editId=null,returnPage='recipe',flash='';
 let historyRecipe='',historyMonth='';
 let records=get('records',[]),outbox=get('outbox',[]);
+let lastChangeVersion=0;
 if(!Array.isArray(records))records=[];
 if(!Array.isArray(outbox))outbox=[];
 function createEventId(){return 'E-'+(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));}
@@ -27,12 +28,25 @@ function applyPublishedData(data){
  remoteRecipes=data.recipes;remoteNotices=Array.isArray(data.notices)?data.notices:[];remoteLoaded=true;return true;
 }
 async function loadPublishedRecipes(){
+ let loaded=false;
  try{
   const url=new URL(window.CONTENT_URL||'./content.json',location.href);url.searchParams.set('_',Date.now());
   const response=await fetch(url,{cache:'no-store'});
   if(!response.ok||!applyPublishedData(await response.json()))throw Error('公開データを確認できません');
-  loadError='';
- }catch(error){loadError='レシピ情報を読み込めませんでした。通信状態を確認して再読み込みしてください。';}
+  loadError='';loaded=true;contentSource='snapshot';
+  if(page!=='recordForm')render();
+ }catch(error){}
+ if(window.RECIPE_API_URL&&window.PARENTS_API_ENABLED===true){
+  try{
+   const url=new URL(window.RECIPE_API_URL);url.searchParams.set('_',Date.now());
+   const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(15000)});
+   const data=await response.json();
+   if(!response.ok||data.app!=='parents-v1'||!applyPublishedData(data))throw Error('invalid_api');
+   loaded=true;contentSource='live';loadError='';
+  }catch(error){if(loaded)loadError='通信できないため、保存済みのレシピを表示しています。';}
+ }
+ if(!loaded)loadError='レシピ情報を読み込めませんでした。通信状態を確認して再読み込みしてください。';
+ if(page!=='recordForm')render();
 }
 function nutritionFor(veg){return remoteRecipes.find(r=>r['野菜名']===veg&&String(r['栄養学的特徴']||'').trim())?.['栄養学的特徴']||'栄養学的特徴は準備中です。';}
 function home(){
@@ -67,9 +81,10 @@ function recordForm(){
 function validRecordDate(date){if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return false;const d=new Date(date+'T12:00:00');return !Number.isNaN(d.getTime())&&localDate(d)===date;}
 function persistRecordChange(next,operation,record){
  // Save data and the retry queue together so a failed write never reports success.
- const nextOutbox=[...outbox,{event_id:createEventId(),record_id:record.id,type:operation,participant_id:getParticipantId(),app_version:window.APP_VERSION,ts:Date.now(),...record}];
- try{save('state',{records:next,outbox:nextOutbox});}catch(error){throw Error('保存できませんでした。ブラウザの保存容量や設定を確認してください。');}
- records=next;outbox=nextOutbox;syncActionLogs();
+ const version=Math.max(Date.now(),lastChangeVersion+1,...outbox.map(e=>(Number(e.change_version||e.ts)||0)+1));
+ const nextOutbox=[...outbox,{event_id:createEventId(),record_id:record.id,type:operation,participant_id:getParticipantId(),app_version:window.APP_VERSION,ts:version,change_version:version,...record}];
+ try{save('state',{records:next,outbox:nextOutbox,lastChangeVersion:version});}catch(error){throw Error('保存できませんでした。ブラウザの保存容量や設定を確認してください。');}
+ records=next;outbox=nextOutbox;lastChangeVersion=version;syncActionLogs();
 }
 function submitRecord(event){
  event.preventDefault();
@@ -96,7 +111,7 @@ function record(){
  app.innerHTML=head('記録','お子さんの調理参加と食べた量')+`<div class="card historyFilters"><label for="historyRecipe">料理で絞り込み</label><select id="historyRecipe"><option value="">すべての料理</option>${Object.entries(recipeIds).map(([name,id])=>`<option value="${id}" ${historyRecipe===id?'selected':''}>${escapeHtml(recipeDisplayName(name))}</option>`).join('')}</select><label for="historyMonth">月で絞り込み</label><input id="historyMonth" type="month" value="${escapeHtml(historyMonth)}"><button class="secondary" onclick="historyRecipe='';historyMonth='';record()">絞り込みを解除</button></div><p class="note">${filtered.length}件の記録</p>${recordList(filtered)}`;
  $('#historyRecipe').addEventListener('change',e=>{historyRecipe=e.target.value;record()});$('#historyMonth').addEventListener('change',e=>{historyMonth=e.target.value;record()});
 }
-function settings(){app.innerHTML=head('設定','保護者版')+`<div class="card"><h2>記録の保存について</h2><p>記録はこの端末・ブラウザに保存されます。元のアプリの記録とは別に管理しています。</p><p class="note">別の端末との共有や復元はできません。ブラウザのデータを消す前に、必要な記録を控えてください。</p><p>${window.ACTION_LOG_API_URL?'管理者用の記録連携が設定されています。':'外部への記録送信は設定されていません。'}</p></div>`;}
+function settings(){app.innerHTML=head('設定','保護者版')+`<div class="card"><h2>記録の保存について</h2><p>記録はこの端末・ブラウザに保存されます。元のアプリの記録とは別に管理しています。</p><p class="note">別の端末との共有や復元はできません。ブラウザのデータを消す前に、必要な記録を控えてください。</p>${window.ACTION_LOG_API_URL?`<p>管理用シートへの記録連携が有効です。</p><p role="status">${outbox.length?`送信待ち：${outbox.length}件`:'すべての記録を送信しました。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信の記録を再送</button>':''}`:'<p>外部への記録送信は設定されていません。</p>'}</div>`;}
 // Recipe browsing remains local. New record events use a dedicated optional endpoint only.
 function log(){}
 let syncing=false;
@@ -104,12 +119,14 @@ async function syncActionLogs(){
  if(syncing||!window.ACTION_LOG_API_URL||!outbox.length)return;
  syncing=true;
  try{
-  for(const event of [...outbox]){
+  while(outbox.length){
+   const event=outbox[0];
    const response=await fetch(window.ACTION_LOG_API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(event),signal:AbortSignal.timeout(15000)});
-   if(!response.ok||(await response.json()).ok!==true)break;
-   const next=outbox.filter(x=>x.event_id!==event.event_id);save('state',{records,outbox:next});outbox=next;
+   const result=await response.json();
+   if(!response.ok||result.ok!==true||result.event_id!==event.event_id)break;
+   const next=outbox.filter(x=>x.event_id!==event.event_id);save('state',{records,outbox:next,lastChangeVersion});outbox=next;
   }
- }catch(error){console.warn('記録は端末内に保存されています。連携は次回再試行します。');}finally{syncing=false;}
+ }catch(error){console.warn('記録は端末内に保存されています。連携は次回再試行します。');}finally{syncing=false;if(page==='settings')settings();}
 }
 function go(next){page=next;render();scrollTo(0,0);}
 function render(){
@@ -120,9 +137,9 @@ function render(){
  nav.innerHTML=[['home','⌂','ホーム'],['record','▣','記録'],['notice','🔔','お知らせ'],['settings','⚙','設定']].map(([p,icon,label])=>`<button class="${active===p?'active':''}" onclick="go('${p}')"><b>${icon}</b>${label}</button>`).join('');
 }
 const savedState=get('state',null);
-if(savedState&&Array.isArray(savedState.records)&&Array.isArray(savedState.outbox)){records=savedState.records;outbox=savedState.outbox;}
+if(savedState&&Array.isArray(savedState.records)&&Array.isArray(savedState.outbox)){records=savedState.records;outbox=savedState.outbox;lastChangeVersion=Number(savedState.lastChangeVersion)||0;}
 window.addEventListener('online',syncActionLogs);
 render();
-loadPublishedRecipes().finally(render);
+loadPublishedRecipes();
 syncActionLogs();
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{});}
