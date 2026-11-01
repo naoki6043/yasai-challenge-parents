@@ -1,7 +1,6 @@
-window.RECIPE_API_URL = 'https://script.google.com/macros/s/AKfycbx8ugEP8F0tF502eSQWZSBIEQ14lMOxUOJXe2lckfvlAkEmPpDAFL-roo5fqc_xmzm-/exec';
-window.LEGACY_ACTION_LOG_API_URL = 'https://script.google.com/macros/s/AKfycbw8kkBNblqna1W2wnu1pEOMZ0Z3O4HmyF9IAEXtdeKEJsxfopxkbQlHCIA-yYkY7RChXw/exec';
-
-// 保護者版の行動ログ送信先。旧研究用の送信先とは分離する。
-window.ACTION_LOG_API_URL = '';
+// 保護者版コピー専用。元アプリのAPIへは送信しない。
+window.RECIPE_API_URL = 'https://script.google.com/macros/s/AKfycbyhaKkOffYhP5VAy7QAYOZmUR99Dch2nlp69C3pVNXXDGenC0x3J6Iic9K2bK9gSnIt/exec';
+window.ACTION_LOG_API_URL = window.RECIPE_API_URL;
+window.PARENTS_API_ENABLED = true;
 window.CONTENT_URL = './content.json';
 window.APP_VERSION = 'parents-v1';
