@@ -2,6 +2,7 @@
 let researchConfig={enabled:false},researchStatus=null,researchBusy=false,researchError='';
 let researchCredentials=get('studyCredentials',null),researchLessons=[],researchLessonId='';
 let researchInitialized=false,researchRestoreToken=new URLSearchParams(location.hash.slice(1)).get('restore')||'';
+let researchEmailEditing=false,researchEmailMessage='';
 if(researchRestoreToken)history.replaceState(null,'',location.pathname+location.search);
 const RESEARCH_STAGE_LABELS={T0:'当日・調理体験前',T1:'当日・調理体験後',T2:'イベント1か月後',T3:'イベント3か月後',T4:'イベント6か月後'};
 const originalResearchApply=applyPublishedData;
@@ -60,6 +61,19 @@ function researchLesson(){
  app.innerHTML=`<button class="back" onclick="go('learn')">‹ まなぶにもどる</button>${head(l['タイトル'])}<article class="card"><p>${escapeHtml(l['導入'])}</p>${['学習ポイント1','学習ポイント2','学習ポイント3'].filter(k=>l[k]).map(k=>`<p>${escapeHtml(l[k])}</p>`).join('')}<h2>やってみよう</h2><p>${escapeHtml(l['やってみよう'])}</p><h2>まとめ</h2><p>${escapeHtml(l['まとめ'])}</p></article>`;
 }
 function researchRecoveryHTML(){return `<section class="card"><h2>以前の参加者情報に戻る</h2><p>アンケートに登録したメールアドレスへ、確認用リンクを送ります。参加者IDと回答・開放状況に戻れます。料理の記録は復元されません。</p><label for="researchRecoveryEmail">登録メールアドレス</label><input id="researchRecoveryEmail" type="email" autocomplete="email"><button class="secondary" onclick="requestResearchRecovery()" ${researchBusy?'disabled':''}>確認用メールを送る</button><p id="researchRecoveryMessage" role="status"></p></section>`;}
+const originalResearchProfileFormHTML=profileFormHTML;
+profileFormHTML=function(){
+ if(window.STUDY_MODE!==true&&!researchConfig.enabled)return originalResearchProfileFormHTML();
+ const registered=!!researchStatus?.email_registered,completed=!!researchStatus?.completed.T0;
+ return `<section class="card"><h2>メールアドレス</h2><p>${registered?'登録済みです。設定での再入力は不要です。':'T0アンケートで入力したメールアドレスを使用します。設定での入力は不要です。'}</p><p class="note">アンケートと利用記録は参加者IDで結びつけます。</p>${completed?researchEmailEditing?`<label for="researchEmailChange">新しいメールアドレス</label><input id="researchEmailChange" type="email" autocomplete="email" maxlength="254"><p class="note">今後の連絡・参加者情報の復帰に使うメールアドレスを変更します。送信済みアンケートの回答は書き換えません。</p><button class="primary" onclick="updateResearchEmail()" ${researchBusy?'disabled':''}>変更を保存</button><button class="secondary" onclick="researchEmailEditing=false;researchEmailMessage='';render()" ${researchBusy?'disabled':''}>キャンセル</button>`:`<button class="secondary" onclick="researchEmailEditing=true;researchEmailMessage='';render()">変更する</button>`:'<button class="secondary" onclick="go(\'notice\')">アンケートを確認</button>'}<p role="status">${escapeHtml(researchEmailMessage)}</p></section>`;
+};
+async function updateResearchEmail(){
+ const input=$('#researchEmailChange'),email=input?.value.trim();
+ if(!email||!input.checkValidity()){researchEmailMessage='メールアドレスを確認してください。';render();return;}
+ if(researchBusy)return;researchBusy=true;
+ try{researchStatus=await researchRequest('study_email_update',{email});researchEmailEditing=false;researchEmailMessage='メールアドレスを変更しました。';}
+ catch(e){researchEmailMessage=e.message;}finally{researchBusy=false;render();}
+}
 async function requestResearchRecovery(){
  const email=$('#researchRecoveryEmail')?.value.trim();if(!email||!$('#researchRecoveryEmail').checkValidity()){$('#researchRecoveryMessage').textContent='メールアドレスを確認してください。';return;}
  if(researchBusy)return;researchBusy=true;
@@ -87,7 +101,6 @@ render=function(){
  if(page==='learn')researchLearn();else if(page==='studyLesson')researchLesson();else originalResearchRender();
  if(page==='notice')app.insertAdjacentHTML('afterbegin',researchSurveyHTML());
  if(page==='settings'){
-  if(!researchStatus.gates.app)$('#profileForm')?.closest('section')?.remove();
   app.insertAdjacentHTML('afterbegin',`<section class="card"><h2>研究への参加</h2><p>参加登録済みです。アンケートの回答状況は「お知らせ」で確認できます。</p></section>`+(researchConfig.recovery_enabled?researchRecoveryHTML():''));
  }
  if(researchStatus.gates.learn){
