@@ -136,7 +136,23 @@ function submitProfile(event){
  try{saveProfile(email);}catch(error){$('#profileError').textContent='保存できませんでした。ブラウザの保存容量や設定を確認してください。';}
 }
 function removeProfile(){if(!confirm('アンケート照合用のメール登録を解除しますか？'))return;try{saveProfile('');}catch(error){$('#profileError').textContent='解除を保存できませんでした。もう一度お試しください。';}}
-function settings(){app.innerHTML=head('設定')+profileFormHTML()+`<div class="card"><h2>記録の保存について</h2><p>記録はこの端末・ブラウザに保存されます。元のアプリの記録とは別に管理しています。</p><p class="note">別の端末との共有や復元はできません。ブラウザのデータを消す前に、必要な記録を控えてください。</p>${window.ACTION_LOG_API_URL?`<p>管理用シートへの記録連携が有効です。</p><p role="status">${outbox.length?`送信待ち：${outbox.length}件`:'すべての記録を送信しました。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信の記録を再送</button>':''}`:'<p>外部への記録送信は設定されていません。</p>'}</div>`;}
+const SETTINGS_FAQ=[
+ ['アプリの使い方',[
+  ['同じ料理を何度も記録できますか？','はい。同じ料理でも、同じ日でも、食べた・作ったつど記録を追加できます。日付、子どもの調理参加、食べた量を選んで保存してください。'],
+  ['記録はどこで確認・変更できますか？','下のメニューの「記録」から確認できます。「一覧」と「カレンダー」を切り替えられます。カレンダーの日付を選ぶと、その日の記録が表示されます。各記録の「編集」「削除」から変更できます。'],
+  ['食べなかった日も記録できますか？','はい。食べた量で「食べなかった」を選べます。調理に参加したかどうかも、食べた量とは別に記録できます。'],
+  ['メールアドレスの登録は必要ですか？','登録は任意です。登録しなくてもレシピの閲覧や記録ができます。登録する場合は、アンケートにも同じメールアドレスを入力してください。管理者がアンケートと利用記録を照合するために使います。'],
+  ['メールを登録すれば、別のスマホでも記録を見られますか？','メール登録はアンケート照合用です。ログインや記録の引き継ぎには使えません。記録は、保存した端末の同じブラウザで確認してください。'],
+  ['通信できないとき、保存した記録はどうなりますか？','この端末に保存できた記録は、通信できなくても残ります。管理者への送信ができなかったデータは、通信が戻ったときやアプリを開き直したときに再送します。設定画面からも送信待ちのデータを送れます。']
+ ]],
+ ['野菜と食事について',[
+  ['朝ごはんに野菜を取り入れるには？','汁物に加える、前日に用意した野菜のおかずを添えるなど、作りやすい方法から試してみてください。このアプリでは、野菜ごとに3つのレシピを紹介しています。'],
+  ['子どもが苦手な野菜は、どうしたらよいですか？','切り方や加熱の仕方、味付けを変えると食べやすくなることがあります。まずは少量を用意し、無理強いせずに試してみてください。洗う・ちぎるなど、調理に関わることも野菜に触れるきっかけになります。'],
+  ['野菜の栄養は、どれも同じですか？','野菜によって含まれる栄養素や量は異なります。ホーム画面の野菜名の下に、主な特徴を紹介しています。1種類だけに偏らず、いろいろな野菜を組み合わせる目安にしてください。']
+ ]]
+];
+function faqHTML(){return `<section class="card settingsFAQ"><h2>よくある質問（Q＆A）</h2>${SETTINGS_FAQ.map(([category,items])=>`<h3>${escapeHtml(category)}</h3>${items.map(([question,answer])=>`<details><summary>${escapeHtml(question)}</summary><p>${escapeHtml(answer)}</p></details>`).join('')}`).join('')}</section>`;}
+function settings(){app.innerHTML=head('設定')+profileFormHTML()+`<div class="card"><h2>記録の保存について</h2><p>保存した記録は、この端末の同じブラウザで確認できます。</p><p class="note">別の端末への引き継ぎや、消えた記録をアプリに戻す機能はありません。ブラウザのデータを消すと記録を確認できなくなるため、残しておきたい内容は事前に控えてください。</p>${window.ACTION_LOG_API_URL?`<p>利用記録は管理者にも送信されます。送信された記録を、このアプリに読み戻すことはできません。</p><p role="status">${outbox.length?`送信待ちのデータ：${outbox.length}件`:'送信待ちのデータはありません。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信のデータを送信</button>':''}`:'<p>現在、利用記録の送信は行っていません。</p>'}</div>`+faqHTML();}
 // Recipe browsing remains local. New record events use a dedicated optional endpoint only.
 function log(){}
 let syncing=false;
