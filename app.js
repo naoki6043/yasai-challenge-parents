@@ -27,7 +27,7 @@ function applyPublishedData(data){
  if(data?.ok!==true||!Array.isArray(data.recipes)||data.recipes.length===0)return false;
  const ids=new Set(data.recipes.map(r=>r.recipe_id));
  if(!Object.values(recipeIds).every(id=>ids.has(id)))return false;
- remoteRecipes=data.recipes;remoteNotices=Array.isArray(data.notices)?data.notices:[];remoteLoaded=true;return true;
+ remoteRecipes=data.recipes;remoteNotices=Array.isArray(data.notices)?data.notices:[];remoteLoaded=true;window.lastPublishedData=data;window.applyGuideData?.(data);return true;
 }
 async function loadPublishedRecipes(){
  let loaded=false;
@@ -141,7 +141,7 @@ const SETTINGS_FAQ=[
   ['同じ料理を何度も記録できますか？','はい。同じ料理でも、同じ日でも、食べた・作ったつど記録を追加できます。日付、子どもの調理参加、食べた量を選んで保存してください。'],
   ['記録はどこで確認・変更できますか？','下のメニューの「記録」から確認できます。「一覧」と「カレンダー」を切り替えられます。カレンダーの日付を選ぶと、その日の記録が表示されます。各記録の「編集」「削除」から変更できます。'],
   ['食べなかった日も記録できますか？','はい。食べた量で「食べなかった」を選べます。調理に参加したかどうかも、食べた量とは別に記録できます。'],
-  ['メールアドレスの登録は必要ですか？','登録は任意です。登録しなくてもレシピの閲覧や記録ができます。登録する場合は、アンケートにも同じメールアドレスを入力してください。管理者がアンケートと利用記録を照合するために使います。'],
+  ['メールアドレスの登録は必要ですか？','レシピ一覧は登録前でも閲覧できます。研究参加のメールアドレスは試食前のアンケートで入力します。設定での再入力は不要です。登録状況の確認や変更は設定から行えます。'],
   ['メールを登録すれば、別のスマホでも記録を見られますか？','メール登録はアンケート照合用です。ログインや記録の引き継ぎには使えません。記録は、保存した端末の同じブラウザで確認してください。'],
   ['通信できないとき、保存した記録はどうなりますか？','この端末に保存できた記録は、通信できなくても残ります。管理者への送信ができなかったデータは、通信が戻ったときやアプリを開き直したときに再送します。設定画面からも送信待ちのデータを送れます。']
  ]],
@@ -152,7 +152,7 @@ const SETTINGS_FAQ=[
  ]]
 ];
 function faqHTML(){return `<section class="card settingsFAQ"><h2>よくある質問（Q＆A）</h2>${SETTINGS_FAQ.map(([category,items])=>`<h3>${escapeHtml(category)}</h3>${items.map(([question,answer])=>`<details><summary>${escapeHtml(question)}</summary><p>${escapeHtml(answer)}</p></details>`).join('')}`).join('')}</section>`;}
-function settings(){app.innerHTML=head('設定')+profileFormHTML()+`<div class="card"><h2>記録の保存について</h2><p>保存した記録は、この端末の同じブラウザで確認できます。</p><p class="note">別の端末への引き継ぎや、消えた記録をアプリに戻す機能はありません。ブラウザのデータを消すと記録を確認できなくなるため、残しておきたい内容は事前に控えてください。</p>${window.ACTION_LOG_API_URL?`<p>利用記録は管理者にも送信されます。送信された記録を、このアプリに読み戻すことはできません。</p><p role="status">${outbox.length?`送信待ちのデータ：${outbox.length}件`:'送信待ちのデータはありません。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信のデータを送信</button>':''}`:'<p>現在、利用記録の送信は行っていません。</p>'}</div>`+faqHTML();}
+function settings(){app.innerHTML=head('設定')+(typeof guideEntryHTML==='function'?guideEntryHTML():'')+profileFormHTML()+`<div class="card"><h2>記録の保存について</h2><p>保存した記録は、この端末の同じブラウザで確認できます。</p><p class="note">別の端末への引き継ぎや、消えた記録をアプリに戻す機能はありません。ブラウザのデータを消すと記録を確認できなくなるため、残しておきたい内容は事前に控えてください。</p>${window.ACTION_LOG_API_URL?`<p>利用記録は管理者にも送信されます。送信された記録を、このアプリに読み戻すことはできません。</p><p role="status">${outbox.length?`送信待ちのデータ：${outbox.length}件`:'送信待ちのデータはありません。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信のデータを送信</button>':''}`:'<p>現在、利用記録の送信は行っていません。</p>'}</div>`+faqHTML();}
 // Recipe browsing remains local. New record events use a dedicated optional endpoint only.
 function log(){}
 let syncing=false;
@@ -171,11 +171,11 @@ async function syncActionLogs(){
 }
 function go(next){page=next;render();scrollTo(0,0);}
 function render(){
- ({home,recipe,record,recordForm,notice,settings}[page]||home)();
+ ({home,recipe,record,recordForm,notice,settings,guide:()=>appGuide()}[page]||home)();
  if(flash){const p=document.createElement('p');p.className='saveNotice';p.setAttribute('role','status');p.textContent=flash;app.prepend(p);flash='';}
  if(page==='recipe')setupRecipeSwipe();
  if(page==='settings')bindProfileForm();
- const active=page==='recipe'?'home':page==='recordForm'?(returnPage==='recipe'?'home':'record'):page;
+ const active=page==='recipe'?'home':page==='recordForm'?(returnPage==='recipe'?'home':'record'):page==='guide'?'settings':page;
  nav.innerHTML=[['home','⌂','ホーム'],['record','▣','記録'],['notice','🔔','お知らせ'],['settings','⚙','設定']].map(([p,icon,label])=>`<button class="${active===p?'active':''}" onclick="go('${p}')"><b>${icon}</b>${label}</button>`).join('');
 }
 const savedState=get('state',null);
