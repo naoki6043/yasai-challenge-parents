@@ -16,6 +16,17 @@ function parentsRowsApi_(ss,name) {
   });
 }
 
+function parentsGuideData_(ss) {
+  if(!ss.getSheetByName('アプリの使い方'))return [];
+  const fields=['guide_id','表示順','タイトル','本文','画像URLまたはファイル名','画像説明'];
+  const seen=new Set();
+  return parentsRowsApi_(ss,'アプリの使い方').filter(row=>{
+    const id=String(row.guide_id||'').trim();
+    if(String(row['公開状態']||'').trim()!=='公開'||!(/^[A-Z][A-Z0-9_]{0,39}$/).test(id)||seen.has(id)||!String(row['タイトル']||'').trim())return false;
+    seen.add(id);return true;
+  }).slice(0,100).map(row=>Object.fromEntries(fields.map(key=>[key,key==='表示順'?(Number(row[key])||0):String(row[key]||'').trim()]))).sort((a,b)=>a['表示順']-b['表示順']);
+}
+
 function parentsPublicData_() {
   const ss=parentsSpreadsheet_();
   const vegetables=parentsRowsApi_(ss,'野菜情報');
@@ -45,7 +56,7 @@ function parentsPublicData_() {
     const rows=parentsRowsApi_(ss,'お知らせ');
     notices=rows.filter(r=>r.notice_id&&(!('公開状態' in r)||String(r['公開状態']).trim()==='公開')).map(r=>({notice_id:r.notice_id,'タイトル':r['タイトル']||'','本文':r['本文']||'','更新日':r['更新日']||''}));
   }
-  return {ok:true,app:'parents-v1',study:typeof studyPublicConfig_==='function'?studyPublicConfig_():{enabled:false},schema_version:1,recipes,notices,lessons:[],quizzes:[],counts:{recipes:recipes.length,notices:notices.length,lessons:0,quizzes:0},updatedAt:new Date().toISOString()};
+  return {ok:true,app:'parents-v1',study:typeof studyPublicConfig_==='function'?studyPublicConfig_():{enabled:false},schema_version:1,recipes,notices,usage_guide:parentsGuideData_(ss),lessons:[],quizzes:[],counts:{recipes:recipes.length,notices:notices.length,lessons:0,quizzes:0},updatedAt:new Date().toISOString()};
 }
 
 function parentsJson_(value) {
