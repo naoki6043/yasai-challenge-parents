@@ -157,12 +157,12 @@ function settings(){app.innerHTML=head('設定')+profileFormHTML()+`<div class="
 function log(){}
 let syncing=false;
 async function syncActionLogs(){
- if(syncing||!window.ACTION_LOG_API_URL||!outbox.length)return;
+ if(syncing||!window.ACTION_LOG_API_URL||!outbox.length||(window.STUDY_MODE===true&&!window.studyCanSync?.()))return;
  syncing=true;
  try{
   while(outbox.length){
    const event=outbox[0];
-   const response=await fetch(window.ACTION_LOG_API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(event),signal:AbortSignal.timeout(15000)});
+   const response=await fetch(window.ACTION_LOG_API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...event,...(window.studyRecordAuth?.(event)||{})}),signal:AbortSignal.timeout(15000)});
    const result=await response.json();
    if(!response.ok||result.ok!==true||result.event_id!==event.event_id)break;
    const next=outbox.filter(x=>x.event_id!==event.event_id);save('state',{records,outbox:next,lastChangeVersion,profile});outbox=next;
