@@ -167,7 +167,7 @@ async function syncActionLogs(){
    if(!response.ok||result.ok!==true||result.event_id!==event.event_id)break;
    const next=outbox.filter(x=>x.event_id!==event.event_id);save('state',{records,outbox:next,lastChangeVersion,profile});outbox=next;
   }
- }catch(error){console.warn('記録は端末内に保存されています。連携は次回再試行します。');}finally{syncing=false;if(page==='settings'){settings();bindProfileForm();}}
+ }catch(error){console.warn('記録は端末内に保存されています。連携は次回再試行します。');}finally{syncing=false;if(page==='settings')render();}
 }
 function go(next){page=next;render();scrollTo(0,0);}
 function render(){
