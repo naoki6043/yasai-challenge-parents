@@ -140,7 +140,7 @@ function doPost(e) {
     if(typeof text!=='string'||text.length>8000)throw new Error('invalid_body');
     const event=JSON.parse(text);
     if(typeof studyHandle_==='function'&&String(event.type).startsWith('study_')){if(['study_enroll','study_recovery_request','study_recovery_complete'].includes(event.type)){lock=LockService.getScriptLock();lock.waitLock(30000);}try{return parentsJson_(studyHandle_(event));}catch(error){const message=String(error.message||'');return parentsJson_({ok:false,error:/^(研究|この|登録|本人|アプリ|リンク|メール|未対応|参加者|復帰|アンケート)/.test(message)?message:'処理を完了できませんでした。管理者にお問い合わせください。'});}}
-    if(typeof studySettings_==='function'&&studyOn_(studySettings_().enabled)){const participant=studyParticipant_(event);if(!participant.values[5])throw Error('study_gate');}
+    if(typeof studySettings_==='function'){const config=studySettings_();if(!studyOn_(config.enabled)||!studyOn_(config.consent_approved))throw Error('study_closed');const participant=studyParticipant_(event);if(!participant.values[5])throw Error('study_gate');}
     const profile=['profile_registered','profile_removed'].includes(event.type);
     if(profile)parentsValidateProfile_(event);else parentsValidateRecord_(event);
     lock=LockService.getScriptLock();lock.waitLock(30000);
