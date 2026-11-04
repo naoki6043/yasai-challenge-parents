@@ -52,7 +52,7 @@ function nutritionFor(veg){return remoteRecipes.find(r=>r['野菜名']===veg&&St
 function home(){
  const eaten=records.filter(r=>r.portion>0);
  const together=records.filter(r=>r.participation!=='none');
- app.innerHTML=head(appTitle(),'保護者のための野菜レシピ')+`<div class="hero"><b>🥦 朝ごはんに、やさいをプラス！</b></div>
+ app.innerHTML=head(appTitle(),'野菜レシピ')+`<div class="hero"><b>🥦 朝ごはんに、やさいをプラス！</b></div>
  <div class="stats"><div class="card"><b>${records.length}</b><span class="note">記録した回数</span></div><div class="card"><b>${new Set(eaten.map(r=>r.recipe_id)).size}</b><span class="note">食べた料理</span></div><div class="card"><b>${together.length}</b><span class="note">調理に参加した回数</span></div></div>
  ${loadError?`<p class="card loadError" role="alert">${escapeHtml(loadError)}</p>`:''}
  <h2>秋冬の野菜レシピ</h2><div class="homeRows">${currentVegetables().map(homeRecipeRow).join('')}</div>`;
@@ -111,7 +111,7 @@ function record(){
  app.innerHTML=head('記録','お子さんの調理参加と食べた量')+`<div class="card historyFilters"><label for="historyRecipe">料理で絞り込み</label><select id="historyRecipe"><option value="">すべての料理</option>${Object.entries(recipeIds).map(([name,id])=>`<option value="${id}" ${historyRecipe===id?'selected':''}>${escapeHtml(recipeDisplayName(name))}</option>`).join('')}</select><label for="historyMonth">月で絞り込み</label><input id="historyMonth" type="month" value="${escapeHtml(historyMonth)}"><button class="secondary" onclick="historyRecipe='';historyMonth='';record()">絞り込みを解除</button></div><p class="note">${filtered.length}件の記録</p>${recordList(filtered)}`;
  $('#historyRecipe').addEventListener('change',e=>{historyRecipe=e.target.value;record()});$('#historyMonth').addEventListener('change',e=>{historyMonth=e.target.value;record()});
 }
-function settings(){app.innerHTML=head('設定','保護者版')+`<div class="card"><h2>記録の保存について</h2><p>記録はこの端末・ブラウザに保存されます。元のアプリの記録とは別に管理しています。</p><p class="note">別の端末との共有や復元はできません。ブラウザのデータを消す前に、必要な記録を控えてください。</p>${window.ACTION_LOG_API_URL?`<p>管理用シートへの記録連携が有効です。</p><p role="status">${outbox.length?`送信待ち：${outbox.length}件`:'すべての記録を送信しました。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信の記録を再送</button>':''}`:'<p>外部への記録送信は設定されていません。</p>'}</div>`;}
+function settings(){app.innerHTML=head('設定')+`<div class="card"><h2>記録の保存について</h2><p>記録はこの端末・ブラウザに保存されます。元のアプリの記録とは別に管理しています。</p><p class="note">別の端末との共有や復元はできません。ブラウザのデータを消す前に、必要な記録を控えてください。</p>${window.ACTION_LOG_API_URL?`<p>管理用シートへの記録連携が有効です。</p><p role="status">${outbox.length?`送信待ち：${outbox.length}件`:'すべての記録を送信しました。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信の記録を再送</button>':''}`:'<p>外部への記録送信は設定されていません。</p>'}</div>`;}
 // Recipe browsing remains local. New record events use a dedicated optional endpoint only.
 function log(){}
 let syncing=false;
