@@ -41,7 +41,7 @@ async function openResearchForm(stage){
 async function refreshResearch(showBusy=true){
  if(!researchCredentials||researchBusy)return;researchBusy=true;researchError='';if(showBusy)render();
  try{researchStatus=await researchRequest('study_status');if(researchStatus.gates.learn){const content=await researchRequest('study_content');researchLessons=Array.isArray(content.lessons)?content.lessons:[];} }
- catch(e){researchError=e.message;}finally{researchBusy=false;if(page!=='recordForm')render();}
+ catch(e){researchError=e.message;}finally{researchBusy=false;if(page!=='recordForm')render();if(researchStatus?.gates.app)syncActionLogs();}
 }
 function researchLearn(){
  if(!researchStatus?.gates.learn){app.innerHTML=head('まなぶ')+'<section class="card">T2アンケートの回答確認後に利用できます。</section>';return;}
@@ -68,7 +68,7 @@ async function completeResearchRecovery(){
   const previousId=getParticipantId();
   if(previousId!==result.participant_id){save('beforeRecovery-'+Date.now(),{participant_id:previousId,records,outbox,profile});records=[];outbox=[];profile={email:''};save('state',{records,outbox,lastChangeVersion,profile});}
   researchCredentials={participant_id:result.participant_id,credential};save('participantId',result.participant_id);save('studyCredentials',researchCredentials);researchStatus=result;researchRestoreToken='';page='notice';
- }catch(e){researchError=e.message;}finally{researchBusy=false;render();}
+ }catch(e){researchError=e.message;}finally{researchBusy=false;render();if(researchStatus?.gates.app)syncActionLogs();}
 }
 const originalResearchRender=render;
 render=function(){
@@ -88,7 +88,7 @@ render=function(){
  }
  if(page==='home'&&researchStatus.gates.spring)app.insertAdjacentHTML('afterbegin','<section class="card"><h2>春夏レシピ</h2><p>アンケートの回答を確認しました。春夏レシピの内容は準備中です。</p></section>');
 };
-window.studyCanSync=()=>researchInitialized&&(!researchConfig.enabled||!!researchStatus?.gates.app);
+window.studyCanSync=()=>researchInitialized&&researchConfig.enabled&&!!researchStatus?.gates.app;
 window.studyRecordAuth=event=>researchConfig.enabled&&researchCredentials?.participant_id===event.participant_id?{credential:researchCredentials.credential}:{};
 const originalResearchSubmit=submitRecord;
 submitRecord=function(event){if(researchConfig.enabled&&!researchStatus?.gates.app){event.preventDefault();researchError='T1の回答状況を確認してください。';page='notice';render();return;}return originalResearchSubmit(event);};
