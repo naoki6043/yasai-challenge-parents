@@ -45,7 +45,7 @@ function parentsPublicData_() {
     const rows=parentsRowsApi_(ss,'お知らせ');
     notices=rows.filter(r=>r.notice_id&&(!('公開状態' in r)||String(r['公開状態']).trim()==='公開')).map(r=>({notice_id:r.notice_id,'タイトル':r['タイトル']||'','本文':r['本文']||'','更新日':r['更新日']||''}));
   }
-  return {ok:true,app:'parents-v1',schema_version:1,recipes,notices,lessons:[],quizzes:[],counts:{recipes:recipes.length,notices:notices.length,lessons:0,quizzes:0},updatedAt:new Date().toISOString()};
+  return {ok:true,app:'parents-v1',study:typeof studyPublicConfig_==='function'?studyPublicConfig_():{enabled:false},schema_version:1,recipes,notices,lessons:[],quizzes:[],counts:{recipes:recipes.length,notices:notices.length,lessons:0,quizzes:0},updatedAt:new Date().toISOString()};
 }
 
 function parentsJson_(value) {
@@ -139,6 +139,8 @@ function doPost(e) {
     const text=e&&e.postData&&e.postData.contents;
     if(typeof text!=='string'||text.length>8000)throw new Error('invalid_body');
     const event=JSON.parse(text);
+    if(typeof studyHandle_==='function'&&String(event.type).startsWith('study_')){if(['study_enroll','study_recovery_request','study_recovery_complete'].includes(event.type)){lock=LockService.getScriptLock();lock.waitLock(30000);}try{return parentsJson_(studyHandle_(event));}catch(error){const message=String(error.message||'');return parentsJson_({ok:false,error:/^(研究|この|登録|本人|アプリ|リンク|メール|未対応|参加者|復帰|アンケート)/.test(message)?message:'処理を完了できませんでした。管理者にお問い合わせください。'});}}
+    if(typeof studySettings_==='function'&&studyOn_(studySettings_().enabled)){const participant=studyParticipant_(event);if(!participant.values[5])throw Error('study_gate');}
     const profile=['profile_registered','profile_removed'].includes(event.type);
     if(profile)parentsValidateProfile_(event);else parentsValidateRecord_(event);
     lock=LockService.getScriptLock();lock.waitLock(30000);
