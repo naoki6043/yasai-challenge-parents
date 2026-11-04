@@ -91,7 +91,12 @@ async function completeResearchRecovery(){
  }catch(e){researchError=e.message;}finally{researchBusy=false;render();if(researchStatus?.gates.app)syncActionLogs();}
 }
 const originalResearchRender=render;
+function researchFiveNav(){
+ nav.innerHTML=[['home','⌂','ホーム'],['learn','📖','まなぶ'],['record','▣','記録'],['notice','🔔','お知らせ'],['settings','⚙','設定']].map(([p,icon,label])=>`<button class="${page===p||page==='studyLesson'&&p==='learn'||page==='guide'&&p==='settings'?'active':''}" onclick="go('${p}')"><b>${icon}</b>${label}</button>`).join('');nav.classList.add('researchFiveNav');
+}
 render=function(){
+ if(page==='guide'&&typeof appGuide==='function'){originalResearchRender();if(researchStatus?.gates.learn)researchFiveNav();else if(!researchStatus?.gates.app)researchNav();return;}
+ if(page==='settings'&&(window.STUDY_MODE===true||researchConfig.enabled)&&(!researchConfig.enabled||!researchStatus)&&typeof publicGuideSettings==='function'){publicGuideSettings();researchNav();return;}
  if(page==='home'&&!researchRestoreToken&&(window.STUDY_MODE===true||researchConfig.enabled)&&!researchStatus?.gates.app){researchPreviewHome();return;}
  if(window.STUDY_MODE===true&&!researchInitialized){app.innerHTML=head(appTitle())+'<section class="card"><p>参加案内を確認しています。</p><button class="secondary" onclick="location.reload()">再読み込み</button></section>';researchNav();return;}
  if(!researchConfig.enabled){if(window.STUDY_MODE===true)researchHold();else originalResearchRender();return;}
@@ -104,7 +109,7 @@ render=function(){
   app.insertAdjacentHTML('afterbegin',`<section class="card"><h2>研究への参加</h2><p>参加登録済みです。アンケートの回答状況は「お知らせ」で確認できます。</p></section>`+(researchConfig.recovery_enabled?researchRecoveryHTML():''));
  }
  if(researchStatus.gates.learn){
-  nav.innerHTML=[['home','⌂','ホーム'],['learn','📖','まなぶ'],['record','▣','記録'],['notice','🔔','お知らせ'],['settings','⚙','設定']].map(([p,icon,label])=>`<button class="${page===p||page==='studyLesson'&&p==='learn'?'active':''}" onclick="go('${p}')"><b>${icon}</b>${label}</button>`).join('');nav.classList.add('researchFiveNav');
+  researchFiveNav();
  }
  if(page==='home'&&researchStatus.gates.spring)app.insertAdjacentHTML('afterbegin','<section class="card"><h2>春夏レシピ</h2><p>アンケートの回答を確認しました。春夏レシピの内容は準備中です。</p></section>');
 };
