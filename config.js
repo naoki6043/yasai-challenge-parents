@@ -5,5 +5,5 @@ window.PARENTS_API_ENABLED = true;
 window.CONTENT_URL = './content.json';
 window.APP_VERSION = 'parents-v1';
 
-// 研究設定・同意文・フォームの確認後にtrueへ変更。
+// 研究連携を使用。参加受付は管理シート「研究設定」で停止しています。
 window.STUDY_MODE = true;
