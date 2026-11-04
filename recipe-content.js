@@ -642,13 +642,13 @@ function notice(){
         <article class="card noticeCard">
 
           <div class="noticeDate">
-            ${date ? `更新日：${date}` : ''}
+            ${date ? `更新日：${escapeHtml(date)}` : ''}
           </div>
 
-          <h2>${title}</h2>
+          <h2>${escapeHtml(title)}</h2>
 
           <div class="noticeText">
-            ${String(text).replace(/\n/g,'<br>')}
+            ${escapeHtml(text).replace(/\n/g,'<br>')}
           </div>
 
         </article>
