@@ -4,3 +4,6 @@ window.ACTION_LOG_API_URL = window.RECIPE_API_URL;
 window.PARENTS_API_ENABLED = true;
 window.CONTENT_URL = './content.json';
 window.APP_VERSION = 'parents-v1';
+
+// 研究設定・同意文・フォームの確認後にtrueへ変更。
+window.STUDY_MODE = true;
