@@ -52,6 +52,14 @@ function studyHandle_(event){
  if(event.type==='study_recovery_complete')return studyRecoveryComplete_(event,config);
  const participant=studyParticipant_(event),status=studyStatus_(participant,config);
  if(event.type==='study_status')return status;
+ if(event.type==='study_email_update'){
+  if(!status.completed.T0)throw Error('メールアドレスはT0アンケートで登録してください。');
+  const email=String(event.email||'').trim().toLowerCase();
+  if(email.length>254||!/^[A-Za-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/.test(email))throw Error('メールアドレスを確認してください。');
+  participant.values[9]=parentsSafeCell_(email);participant.values[10]=new Date().toISOString();
+  studyWrite_(participant.sheet,participant.row,participant.values);SpreadsheetApp.flush();
+  return studyStatus_(participant,config);
+ }
  if(event.type==='study_content'){
   const ss=parentsSpreadsheet_(),fields=['lesson_id','学年区分','ステージ','タイトル','導入','学習ポイント1','学習ポイント2','学習ポイント3','やってみよう','まとめ','content_version'];
   const lessons=status.gates.learn?parentsRowsApi_(ss,'学習コンテンツ').filter(r=>r['公開状態']==='公開').map(r=>Object.fromEntries(fields.map(k=>[k,r[k]||'']))):[];
@@ -86,8 +94,8 @@ function studyAcceptResponse_(form,response){
  const valid=index>=0&&stageIndex>=0&&studyOn_(entry.enabled)&&(!entry.opens_on||today>=String(entry.opens_on))&&studyVerifyTicket_(ticket,pid,entry.stage,form.getId(),response.getTimestamp().getTime())&&(stageIndex===0||!!rows[index][stageIndex+3]);
  let result=valid?'照合済み':'照合不可';
  if(valid){
-  const row=rows[index];if(!row[stageIndex+4])row[stageIndex+4]=response.getTimestamp().toISOString();
-  if(entry.stage==='T0'){
+  const row=rows[index],firstStageResponse=!row[stageIndex+4];if(firstStageResponse)row[stageIndex+4]=response.getTimestamp().toISOString();
+  if(entry.stage==='T0'&&firstStageResponse){
    const mapping=studyRows_(studySheet_('調査項目対応',['stage','question_key','item_id','title_at_creation']),4).find(r=>r[0]==='T0'&&r[1]==='T0_Q01');
    const email=mapping?String(answers[String(mapping[2])]||'').trim().toLowerCase():'';
    if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))row[9]=parentsSafeCell_(email);
