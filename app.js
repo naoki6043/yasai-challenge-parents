@@ -18,7 +18,7 @@ if(!Array.isArray(outbox))outbox=[];
 function createEventId(){return 'E-'+(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));}
 function getParticipantId(){let id=get('participantId','');if(!id){id='P-'+createEventId();save('participantId',id)}return id;}
 function appTitle(){return '朝食やさいチャレンジ';}
-function head(title,subtitle=''){return `<div class="top"><div><div class="brand">${escapeHtml(title)}</div><div class="sub">${escapeHtml(subtitle)}</div></div><span>🥦</span></div>`;}
+function head(title,subtitle=''){return `<div class="top"><div><div class="brand">${escapeHtml(title)}</div><div class="sub">${escapeHtml(subtitle)}</div></div><img class="headerAppIcon" src="icons/icon-192.png" width="48" height="48" alt="" aria-hidden="true"></div>`;}
 function remoteById(id){return remoteRecipes.find(r=>String(r.recipe_id)===String(id));}
 function remoteByName(name){return remoteRecipes.find(r=>r['料理名']===name);}
 function recipeDisplayName(name){return remoteById(recipeIds[name])?.['料理名']||name;}
@@ -54,12 +54,12 @@ function nutritionFor(veg){return remoteRecipes.find(r=>r['野菜名']===veg&&St
 function home(){
  const eaten=records.filter(r=>r.portion>0);
  const together=records.filter(r=>r.participation!=='none');
- app.innerHTML=head(appTitle(),'野菜レシピ')+`<div class="hero"><b>🥦 朝ごはんに、やさいをプラス！</b></div>
+ app.innerHTML=head(appTitle(),'野菜レシピ')+`<div class="hero"><b>朝ごはんに、やさいをプラス！</b></div>
  <div class="stats"><div class="card"><b>${records.length}</b><span class="note">記録した回数</span></div><div class="card"><b>${new Set(eaten.map(r=>r.recipe_id)).size}</b><span class="note">食べた料理</span></div><div class="card"><b>${together.length}</b><span class="note">調理に参加した回数</span></div></div>
  ${loadError?`<p class="card loadError" role="alert">${escapeHtml(loadError)}</p>`:''}
  <h2>秋冬の野菜レシピ</h2><div class="homeRows">${currentVegetables().map(homeRecipeRow).join('')}</div>`;
 }
-function homeRecipeRow(v){return `<section class="homeRow"><div class="vegTitle"><img class="vegetableIllustration" style="width:56px;height:56px;object-fit:contain;flex:none" src="${vegetableIllustrations[v[0]]}" alt="" aria-hidden="true"><b>${escapeHtml(v[0])}</b><p class="vegNutrition">${escapeHtml(nutritionFor(v[0]))}</p></div><div class="threeRecipes">${v[2].map((name,i)=>{
+function homeRecipeRow(v){return `<section class="homeRow"><div class="vegTitle"><img class="vegetableIllustration" style="width:56px;height:56px;object-fit:contain;flex:none" src="${vegetableIllustrations[v[0]]}" alt="" aria-hidden="true"><div class="vegHeadingText"><b>${escapeHtml(v[0])}</b><p class="vegNutrition">${escapeHtml(nutritionFor(v[0]))}</p></div></div><div class="threeRecipes">${v[2].map((name,i)=>{
  const count=records.filter(r=>r.recipe_id===recipeIds[name]).length;
  return `<button class="homeRecipe" onclick="openRecipeHome('${v[0]}',${i})">${recipePhoto(name)?`<img class="recipePhoto" src="${escapeHtml(recipePhoto(name))}" alt="${escapeHtml(recipeDisplayName(name))}" loading="lazy">`:`<div class="photoPlaceholder">${v[1]}</div>`}<b>${escapeHtml(recipeDisplayName(name))}</b><div class="recordCount">${count?`記録 ${count}回`:'記録なし'}</div></button>`;
  }).join('')}</div></section>`;}
