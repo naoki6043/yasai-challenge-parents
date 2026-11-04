@@ -371,3 +371,13 @@
 .settingsFAQ h3{font-size:15px;margin:24px 0 8px;color:#52644c}.settingsFAQ details{border-bottom:1px solid #e4e9df;padding:13px 0}.settingsFAQ details:last-child{border-bottom:0}.settingsFAQ summary{cursor:pointer;font-weight:700;line-height:1.65;padding:3px 2px}.settingsFAQ details p{font-size:14px;line-height:1.85;margin:10px 0 3px}.settingsFAQ summary:focus-visible{outline:3px solid #7b9f65;outline-offset:3px}
 
 .researchConsentText{white-space:pre-wrap;line-height:1.85;margin-bottom:18px}.researchSurveyRow{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #e4e9df;padding:14px 0}.researchSurveyRow .note{margin-bottom:0}.researchLessonLink{display:block;width:100%;text-align:left;margin:10px 0}#nav.researchFiveNav button{width:20%}.radioChoice{display:flex;gap:9px;align-items:flex-start;line-height:1.7;margin:15px 0}#researchRecoveryEmail{font:inherit;width:100%;padding:12px;border:1px solid #ccd5c7;border-radius:10px;margin:10px 0}
+/* Spreadsheet-managed public user guide. */
+.guideEntry p,.guideBody{font-size:16px;line-height:1.85;white-space:pre-line;overflow-wrap:anywhere}
+.appGuideSection h2{font-size:20px;line-height:1.5}
+.guideFigure{margin:22px auto 4px;max-width:340px}
+.guidePhone{border:6px solid #25332c;border-radius:25px;overflow:hidden;background:#faf9f5}
+.guidePhone img{display:block;width:100%;height:auto}
+.guideFigure figcaption{font-size:12px;line-height:1.6;color:#6c756d;margin-top:10px}
+.guideImageFallback{display:none;font-size:14px;line-height:1.8}
+.guideImageFailed .guidePhone{display:none}.guideImageFailed .guideImageFallback{display:block}
+.guideTopLink{display:inline-block;padding:12px 0;color:#557a46;font-weight:700}
