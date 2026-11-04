@@ -15,7 +15,13 @@ async function researchRequest(type,extra={}){
  const data=await response.json();if(!response.ok||data.ok!==true)throw Error(data.error||'通信できませんでした。時間をおいてお試しください。');return data;
 }
 function researchCredential(){return 'K-'+crypto.randomUUID().replace(/-/g,'')+crypto.randomUUID().replace(/-/g,'');}
-function researchNav(){nav.innerHTML=[['notice','アンケート'],['settings','設定']].map(([p,label])=>`<button onclick="go('${p}')">${label}</button>`).join('');}
+function researchNav(){nav.innerHTML=[['home','ホーム'],['notice','アンケート'],['settings','設定']].map(([p,label])=>`<button class="${page===p?'active':''}" onclick="go('${p}')">${label}</button>`).join('');}
+function researchPreviewHome(){
+ originalResearchRender();
+ app.insertAdjacentHTML('afterbegin','<section class="card"><p>レシピ一覧はアンケート回答前でもご覧いただけます。詳しい作り方・記録は、当日のT1アンケート回答後に利用できます。</p><button class="secondary" onclick="go(\'notice\')">参加案内・アンケート</button></section>');
+ researchNav();
+}
+function researchHold(){app.innerHTML=head(appTitle())+'<section class="card"><h2>参加受付の準備中です</h2><p>レシピ一覧はホームからご覧いただけます。研究への参加受付は、運営者の案内をお待ちください。</p><button class="secondary" onclick="go(\'home\')">レシピ一覧へ</button></section>';researchNav();}
 function researchFeedback(){return `<p class="formError" role="alert">${escapeHtml(researchError)}</p>${researchBusy?'<p role="status">確認しています…</p>':''}`;}
 function researchConsent(){
  app.innerHTML=head(appTitle(),'研究への参加のご案内')+`<section class="card"><h2>はじめに</h2>${researchConfig.consent_text?`<div class="researchConsentText">${escapeHtml(researchConfig.consent_text)}</div><label class="radioChoice"><input type="checkbox" id="researchConsent">研究の説明を確認し、参加に同意します。</label><button class="primary" onclick="enrollResearch()" ${researchBusy?'disabled':''}>同意してアンケートへ進む</button>`:'<p>研究への参加受付は準備中です。運営者の案内をお待ちください。</p>'}${researchConfig.contact?`<p class="note">お問い合わせ：${escapeHtml(researchConfig.contact)}</p>`:''}${researchFeedback()}</section>${researchConfig.recovery_enabled?researchRecoveryHTML():''}`;researchNav();
@@ -30,7 +36,7 @@ async function enrollResearch(){
 }
 function researchSurveyHTML(){
  if(!researchStatus)return '';
- return `<section class="card"><h2>アンケート</h2><p>保護者の方が、同じお子さまについてお答えください。参加者IDは自動入力されるため、入力は不要です。</p><p class="note">回答を送信したら、この画面に戻って回答状況を確認してください。</p>${Object.entries(RESEARCH_STAGE_LABELS).map(([stage,label])=>{const form=researchStatus.forms.find(f=>f.stage===stage),done=researchStatus.completed[stage];return `<div class="researchSurveyRow"><div><b>${stage} ${label}</b><p class="note">${done?'回答確認済み':form?.available?'回答できます':form?.opens_on?escapeHtml(form.opens_on)+'以降に受付予定':'受付準備中'}</p></div>${!done&&form?.available?`<button class="secondary" onclick="openResearchForm('${stage}')" ${researchBusy?'disabled':''}>回答する</button>`:''}</div>`}).join('')}<button class="primary" onclick="refreshResearch()" ${researchBusy?'disabled':''}>回答状況を確認</button>${researchFeedback()}<p class="note">T1回答後にレシピと記録、T2回答後に「まなぶ」、T3回答後に春夏レシピを追加します。回答の確認に時間がかかる場合は、少し待ってから再確認してください。</p></section>`;
+ return `<section class="card"><h2>アンケート</h2><p>保護者の方が、同じお子さまについてお答えください。参加者IDは自動入力されるため、入力は不要です。</p><p class="note">回答を送信したら、この画面に戻って回答状況を確認してください。</p>${Object.entries(RESEARCH_STAGE_LABELS).map(([stage,label])=>{const form=researchStatus.forms.find(f=>f.stage===stage),done=researchStatus.completed[stage];return `<div class="researchSurveyRow"><div><b>${stage} ${label}</b><p class="note">${done?'回答確認済み':form?.available?'回答できます':form?.opens_on?escapeHtml(form.opens_on)+'以降に受付予定':'受付準備中'}</p></div>${!done&&form?.available?`<button class="secondary" onclick="openResearchForm('${stage}')" ${researchBusy?'disabled':''}>回答する</button>`:''}</div>`}).join('')}<button class="primary" onclick="refreshResearch()" ${researchBusy?'disabled':''}>回答状況を確認</button>${researchFeedback()}<p class="note">レシピ一覧は回答前から閲覧できます。T1回答後に詳しい作り方と記録、T2回答後に「まなぶ」、T3回答後に春夏レシピを追加します。回答の確認に時間がかかる場合は、少し待ってから再確認してください。</p></section>`;
 }
 async function openResearchForm(stage){
  if(researchBusy)return;
@@ -72,8 +78,9 @@ async function completeResearchRecovery(){
 }
 const originalResearchRender=render;
 render=function(){
- if(window.STUDY_MODE===true&&!researchInitialized){app.innerHTML=head(appTitle())+'<section class="card"><p>参加案内を確認しています。</p><button class="secondary" onclick="location.reload()">再読み込み</button></section>';nav.innerHTML='';return;}
- if(!researchConfig.enabled){if(window.STUDY_MODE===true){app.innerHTML=head(appTitle())+'<section class="card"><h2>参加受付の準備中です</h2><p>研究への参加受付は、運営者の案内をお待ちください。</p></section>';nav.innerHTML='';}else originalResearchRender();return;}
+ if(page==='home'&&!researchRestoreToken&&(window.STUDY_MODE===true||researchConfig.enabled)&&!researchStatus?.gates.app){researchPreviewHome();return;}
+ if(window.STUDY_MODE===true&&!researchInitialized){app.innerHTML=head(appTitle())+'<section class="card"><p>参加案内を確認しています。</p><button class="secondary" onclick="location.reload()">再読み込み</button></section>';researchNav();return;}
+ if(!researchConfig.enabled){if(window.STUDY_MODE===true)researchHold();else originalResearchRender();return;}
  if(researchRestoreToken){app.innerHTML=head('参加者情報の復帰')+`<section class="card"><p>メールの確認リンクから、以前の参加者情報へ戻ります。</p><button class="primary" onclick="completeResearchRecovery()" ${researchBusy?'disabled':''}>参加者情報に戻る</button>${researchFeedback()}</section>`;nav.innerHTML='';return;}
  if(!researchStatus){researchConsent();return;}
  if(!researchStatus.gates.app&&page!=='settings'){app.innerHTML=head(appTitle(),'アンケートへのご協力をお願いします')+researchSurveyHTML();researchNav();return;}
@@ -91,6 +98,6 @@ render=function(){
 window.studyCanSync=()=>researchInitialized&&researchConfig.enabled&&!!researchStatus?.gates.app;
 window.studyRecordAuth=event=>researchConfig.enabled&&researchCredentials?.participant_id===event.participant_id?{credential:researchCredentials.credential}:{};
 const originalResearchSubmit=submitRecord;
-submitRecord=function(event){if(researchConfig.enabled&&!researchStatus?.gates.app){event.preventDefault();researchError='T1の回答状況を確認してください。';page='notice';render();return;}return originalResearchSubmit(event);};
+submitRecord=function(event){if((window.STUDY_MODE===true||researchConfig.enabled)&&!researchStatus?.gates.app){event.preventDefault();researchError='T1の回答状況を確認してください。';page='notice';render();return;}return originalResearchSubmit(event);};
 window.addEventListener('focus',()=>{if(researchConfig.enabled&&researchCredentials)refreshResearch(false);});
 render();
