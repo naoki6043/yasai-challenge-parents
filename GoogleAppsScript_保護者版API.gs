@@ -109,15 +109,40 @@ function parentsSaveRecord_(event) {
   return {ok:true,event_id:event.event_id};
 }
 
+function parentsValidateProfile_(event) {
+  if(!event||event.app_version!=='parents-v1'||!['profile_registered','profile_removed'].includes(event.type))throw new Error('invalid_profile');
+  if(!/^P-[A-Za-z0-9-]{8,100}$/.test(event.participant_id||'')||!/^E-[A-Za-z0-9-]{8,100}$/.test(event.event_id||''))throw new Error('invalid_id');
+  if(!Number.isSafeInteger(event.change_version)||event.change_version<1||event.change_version>Date.now()+86400000)throw new Error('invalid_version');
+  if(event.type==='profile_registered'&&(event.consent!==true||typeof event.email!=='string'||event.email.length>254||! /^[A-Za-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/.test(event.email)))throw new Error('invalid_email');
+}
+
+function parentsSaveProfile_(event) {
+  parentsValidateProfile_(event);
+  const ss=parentsSpreadsheet_(),name=event.participant_id.startsWith('P-TEST-')?'照合用登録_接続テスト':'照合用登録';
+  const headers=['participant_id','email','状態','change_version','event_id','更新日時','利用目的'];
+  let sheet=ss.getSheetByName(name);
+  if(!sheet){sheet=ss.insertSheet(name);sheet.getRange(1,1,1,headers.length).setValues([headers]);sheet.setFrozenRows(1);}
+  if(sheet.getRange(1,1,1,headers.length).getDisplayValues()[0].join('\t')!==headers.join('\t'))throw new Error('profile_schema');
+  const rows=sheet.getLastRow()>1?sheet.getRange(2,1,sheet.getLastRow()-1,headers.length).getValues():[],index=rows.findIndex(r=>String(r[0])===event.participant_id),old=index>=0?rows[index]:null;
+  if(old&&String(old[4])===event.event_id)return {ok:true,event_id:event.event_id,duplicate:true};
+  if(old&&Number(old[3])>=event.change_version)return {ok:true,event_id:event.event_id,stale:true};
+  const removed=event.type==='profile_removed';
+  const row=[event.participant_id,removed?'':parentsSafeCell_(event.email.trim().toLowerCase()),removed?'解除済み':'登録中',event.change_version,event.event_id,new Date().toISOString(),'アンケートと利用記録の照合'];
+  const range=sheet.getRange(index>=0?index+2:sheet.getLastRow()+1,1,1,row.length);
+  range.setNumberFormats([row.map((v,i)=>i===3?'0':'@')]);range.setValues([row]);SpreadsheetApp.flush();
+  return {ok:true,event_id:event.event_id};
+}
+
 function doPost(e) {
   let lock;
   try{
     const text=e&&e.postData&&e.postData.contents;
     if(typeof text!=='string'||text.length>8000)throw new Error('invalid_body');
     const event=JSON.parse(text);
-    parentsValidateRecord_(event);
+    const profile=['profile_registered','profile_removed'].includes(event.type);
+    if(profile)parentsValidateProfile_(event);else parentsValidateRecord_(event);
     lock=LockService.getScriptLock();lock.waitLock(30000);
-    return parentsJson_(parentsSaveRecord_(event));
+    return parentsJson_(profile?parentsSaveProfile_(event):parentsSaveRecord_(event));
   }catch(error){return parentsJson_({ok:false,error:'記録を保存できませんでした。端末内の記録は残っています。'});}
   finally{if(lock&&lock.hasLock())lock.releaseLock();}
 }
