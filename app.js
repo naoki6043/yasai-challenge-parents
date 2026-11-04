@@ -11,7 +11,7 @@ let page='home',vegSel=null,recipeSel=null,editId=null,returnPage='recipe',flash
 let historyRecipe='',historyMonth='';
 let historyView='list',calendarMonth=localDate().slice(0,7),historyDay='';
 let records=get('records',[]),outbox=get('outbox',[]);
-let lastChangeVersion=0;
+let lastChangeVersion=0,profile={email:''};
 if(!Array.isArray(records))records=[];
 if(!Array.isArray(outbox))outbox=[];
 function createEventId(){return 'E-'+(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));}
@@ -84,7 +84,7 @@ function persistRecordChange(next,operation,record){
  // Save data and the retry queue together so a failed write never reports success.
  const version=Math.max(Date.now(),lastChangeVersion+1,...outbox.map(e=>(Number(e.change_version||e.ts)||0)+1));
  const nextOutbox=[...outbox,{event_id:createEventId(),record_id:record.id,type:operation,participant_id:getParticipantId(),app_version:window.APP_VERSION,ts:version,change_version:version,...record}];
- try{save('state',{records:next,outbox:nextOutbox,lastChangeVersion:version});}catch(error){throw Error('保存できませんでした。ブラウザの保存容量や設定を確認してください。');}
+ try{save('state',{records:next,outbox:nextOutbox,lastChangeVersion:version,profile});}catch(error){throw Error('保存できませんでした。ブラウザの保存容量や設定を確認してください。');}
  records=next;outbox=nextOutbox;lastChangeVersion=version;syncActionLogs();
 }
 function submitRecord(event){
@@ -120,7 +120,22 @@ function record(){
  app.innerHTML=head('記録','お子さんの調理参加と食べた量')+`<div class="historyViewSwitch" role="group" aria-label="記録の表示方法"><button class="secondary" aria-pressed="${historyView==='list'}" onclick="setHistoryView('list')">一覧</button><button class="secondary" aria-pressed="${historyView==='calendar'}" onclick="setHistoryView('calendar')">カレンダー</button></div><div class="card historyFilters"><label for="historyRecipe">料理で絞り込み</label><select id="historyRecipe"><option value="">すべての料理</option>${Object.entries(recipeIds).map(([name,id])=>`<option value="${id}" ${historyRecipe===id?'selected':''}>${escapeHtml(recipeDisplayName(name))}</option>`).join('')}</select><label for="historyMonth">月で絞り込み</label><input id="historyMonth" type="month" value="${escapeHtml(historyMonth)}"><button class="secondary" onclick="historyRecipe='';historyDay='';historyMonth=historyView==='calendar'?calendarMonth:'';record()">絞り込みを解除</button></div>${historyView==='calendar'?historyCalendar():''}<p class="note">${historyView==='calendar'&&historyDay?escapeHtml(historyDay)+'：':''}${displayed.length}件の記録</p>${recordList(displayed)}`;
  $('#historyRecipe').addEventListener('change',e=>{historyRecipe=e.target.value;record()});$('#historyMonth').addEventListener('change',e=>{historyMonth=e.target.value;historyDay='';if(historyView==='calendar'){calendarMonth=historyMonth||localDate().slice(0,7);historyMonth=calendarMonth;}record()});
 }
-function settings(){app.innerHTML=head('設定')+`<div class="card"><h2>記録の保存について</h2><p>記録はこの端末・ブラウザに保存されます。元のアプリの記録とは別に管理しています。</p><p class="note">別の端末との共有や復元はできません。ブラウザのデータを消す前に、必要な記録を控えてください。</p>${window.ACTION_LOG_API_URL?`<p>管理用シートへの記録連携が有効です。</p><p role="status">${outbox.length?`送信待ち：${outbox.length}件`:'すべての記録を送信しました。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信の記録を再送</button>':''}`:'<p>外部への記録送信は設定されていません。</p>'}</div>`;}
+function profileFormHTML(){return `<section class="card"><h2>メールアドレスの登録（任意）</h2><p>アンケートとこの端末の利用記録を照合するために使用します。アンケートにも同じメールアドレスを入力してください。登録しなくても、すべての機能を利用できます。</p><p class="note">ログインや本人確認の機能はありません。別の端末への記録の引き継ぎには使えません。</p><form id="profileForm" class="recordForm"><label for="profileEmail">メールアドレス</label><input id="profileEmail" type="email" autocomplete="email" maxlength="254" required value="${escapeHtml(profile.email)}"><label class="radioChoice"><input type="checkbox" id="profileConsent" required>アンケート照合のため、メールアドレスと利用記録を管理者が管理用シートに保存・利用することに同意します。</label><p id="profileError" class="formError" role="alert"></p><button class="primary" type="submit">${profile.email?'変更して登録':'登録する'}</button>${profile.email?'<button class="secondary" type="button" onclick="removeProfile()">登録を解除</button>':''}</form><p role="status">${outbox.some(e=>e.type.startsWith('profile_'))?'登録情報を送信待ちです。通信後に反映されます。':profile.email?'登録済みです。':''}</p><p class="note">解除すると、この端末の登録メールアドレスを消去し、通信後に管理用シートの登録欄を空にします。すでに照合・転記されたアンケート回答は変更されません。</p></section>`;}
+function bindProfileForm(){$('#profileForm')?.addEventListener('submit',submitProfile);}
+function saveProfile(email){
+ const version=Math.max(Date.now(),lastChangeVersion+1,...outbox.map(e=>(Number(e.change_version||e.ts)||0)+1)),nextProfile={email};
+ const event={event_id:createEventId(),participant_id:getParticipantId(),app_version:window.APP_VERSION,type:email?'profile_registered':'profile_removed',email,consent:!!email,change_version:version,ts:version};
+ const nextOutbox=[...outbox,event];
+ save('state',{records,outbox:nextOutbox,lastChangeVersion:version,profile:nextProfile});
+ profile=nextProfile;outbox=nextOutbox;lastChangeVersion=version;render();syncActionLogs();
+}
+function submitProfile(event){
+ event.preventDefault();const email=$('#profileEmail').value.trim().toLowerCase();
+ if(!$('#profileConsent').checked||email.length>254||! /^[A-Za-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/.test(email)){$('#profileError').textContent='メールアドレスと同意のチェックを確認してください。';return;}
+ try{saveProfile(email);}catch(error){$('#profileError').textContent='保存できませんでした。ブラウザの保存容量や設定を確認してください。';}
+}
+function removeProfile(){if(!confirm('アンケート照合用のメール登録を解除しますか？'))return;try{saveProfile('');}catch(error){$('#profileError').textContent='解除を保存できませんでした。もう一度お試しください。';}}
+function settings(){app.innerHTML=head('設定')+profileFormHTML()+`<div class="card"><h2>記録の保存について</h2><p>記録はこの端末・ブラウザに保存されます。元のアプリの記録とは別に管理しています。</p><p class="note">別の端末との共有や復元はできません。ブラウザのデータを消す前に、必要な記録を控えてください。</p>${window.ACTION_LOG_API_URL?`<p>管理用シートへの記録連携が有効です。</p><p role="status">${outbox.length?`送信待ち：${outbox.length}件`:'すべての記録を送信しました。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信の記録を再送</button>':''}`:'<p>外部への記録送信は設定されていません。</p>'}</div>`;}
 // Recipe browsing remains local. New record events use a dedicated optional endpoint only.
 function log(){}
 let syncing=false;
@@ -133,20 +148,21 @@ async function syncActionLogs(){
    const response=await fetch(window.ACTION_LOG_API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(event),signal:AbortSignal.timeout(15000)});
    const result=await response.json();
    if(!response.ok||result.ok!==true||result.event_id!==event.event_id)break;
-   const next=outbox.filter(x=>x.event_id!==event.event_id);save('state',{records,outbox:next,lastChangeVersion});outbox=next;
+   const next=outbox.filter(x=>x.event_id!==event.event_id);save('state',{records,outbox:next,lastChangeVersion,profile});outbox=next;
   }
- }catch(error){console.warn('記録は端末内に保存されています。連携は次回再試行します。');}finally{syncing=false;if(page==='settings')settings();}
+ }catch(error){console.warn('記録は端末内に保存されています。連携は次回再試行します。');}finally{syncing=false;if(page==='settings'){settings();bindProfileForm();}}
 }
 function go(next){page=next;render();scrollTo(0,0);}
 function render(){
  ({home,recipe,record,recordForm,notice,settings}[page]||home)();
  if(flash){const p=document.createElement('p');p.className='saveNotice';p.setAttribute('role','status');p.textContent=flash;app.prepend(p);flash='';}
  if(page==='recipe')setupRecipeSwipe();
+ if(page==='settings')bindProfileForm();
  const active=page==='recipe'?'home':page==='recordForm'?(returnPage==='recipe'?'home':'record'):page;
  nav.innerHTML=[['home','⌂','ホーム'],['record','▣','記録'],['notice','🔔','お知らせ'],['settings','⚙','設定']].map(([p,icon,label])=>`<button class="${active===p?'active':''}" onclick="go('${p}')"><b>${icon}</b>${label}</button>`).join('');
 }
 const savedState=get('state',null);
-if(savedState&&Array.isArray(savedState.records)&&Array.isArray(savedState.outbox)){records=savedState.records;outbox=savedState.outbox;lastChangeVersion=Number(savedState.lastChangeVersion)||0;}
+if(savedState&&Array.isArray(savedState.records)&&Array.isArray(savedState.outbox)){records=savedState.records;outbox=savedState.outbox;lastChangeVersion=Number(savedState.lastChangeVersion)||0;profile=typeof savedState.profile?.email==='string'?savedState.profile:{email:''};}
 window.addEventListener('online',syncActionLogs);
 render();
 loadPublishedRecipes();
