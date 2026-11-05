@@ -27,6 +27,11 @@ function parentsGuideData_(ss) {
   }).slice(0,100).map(row=>Object.fromEntries(fields.map(key=>[key,key==='表示順'?(Number(row[key])||0):String(row[key]||'').trim()]))).sort((a,b)=>a['表示順']-b['表示順']);
 }
 
+function parentsFaqData_(ss) {
+ if(!ss.getSheetByName('Q＆A'))return [];
+ return parentsRowsApi_(ss,'Q＆A').filter(r=>String(r['公開状態']||'').trim()==='公開'&&String(r['質問']||'').trim()&&String(r['回答']||'').trim()).map(r=>({'表示順':Number(r['表示順'])||0,'分類':String(r['分類']||'その他').trim()||'その他','質問':String(r['質問']).trim(),'回答':String(r['回答']).trim()})).sort((a,b)=>a['表示順']-b['表示順']);
+}
+
 function parentsPublicData_() {
   const ss=parentsSpreadsheet_();
   const vegetables=parentsRowsApi_(ss,'野菜情報');
@@ -56,7 +61,7 @@ function parentsPublicData_() {
     const rows=parentsRowsApi_(ss,'お知らせ');
     notices=rows.filter(r=>r.notice_id&&(!('公開状態' in r)||String(r['公開状態']).trim()==='公開')).map(r=>({notice_id:r.notice_id,'タイトル':r['タイトル']||'','本文':r['本文']||'','更新日':r['更新日']||''}));
   }
-  return {ok:true,app:'parents-v1',study:typeof studyPublicConfig_==='function'?studyPublicConfig_():{enabled:false},schema_version:1,recipes,notices,usage_guide:parentsGuideData_(ss),lessons:[],quizzes:[],counts:{recipes:recipes.length,notices:notices.length,lessons:0,quizzes:0},updatedAt:new Date().toISOString()};
+  return {ok:true,app:'parents-v1',study:typeof studyPublicConfig_==='function'?studyPublicConfig_():{enabled:false},schema_version:1,recipes,notices,usage_guide:parentsGuideData_(ss),faq:parentsFaqData_(ss),lessons:[],quizzes:[],counts:{recipes:recipes.length,notices:notices.length,lessons:0,quizzes:0},updatedAt:new Date().toISOString()};
 }
 
 function parentsJson_(value) {
