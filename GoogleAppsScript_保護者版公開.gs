@@ -40,7 +40,7 @@ function publishParentsContent() {
     const notices=parentsRows_(ss,'お知らせ').filter(r=>r['公開状態']==='公開').map(r=>({
       'タイトル':r['タイトル']||'', '本文':r['本文']||'', '更新日':r['更新日']||''
     }));
-    const content={ok:true,recipes,notices,usage_guide:typeof parentsGuideData_==='function'?parentsGuideData_(ss):[],updatedAt:new Date().toISOString(),app:'parents-v1'};
+    const content={ok:true,recipes,notices,usage_guide:typeof parentsGuideData_==='function'?parentsGuideData_(ss):[],faq:typeof parentsFaqData_==='function'?parentsFaqData_(ss):[],updatedAt:new Date().toISOString(),app:'parents-v1'};
     // 固定のコピー先だけに書き込み、元リポジトリには接続しない。
     const url='https://api.github.com/repos/naoki6043/yasai-challenge-parents/contents/content.json';
     const headers={Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
