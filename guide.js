@@ -38,7 +38,7 @@ function appGuide(){
  }).join(''):'<section class="card"><p>使い方を準備しています。時間をおいて再読み込みしてください。</p></section>')+'<p><a class="guideTopLink" href="#appGuideTop">上へ戻る</a></p></div>';
 }
 function publicGuideSettings(){
- app.innerHTML=head('設定')+guideEntryHTML()+'<section class="card"><h2>研究への参加</h2><p>'+(typeof researchConfig!=='undefined'&&researchConfig.enabled?'研究説明と同意、アンケートは参加案内から確認できます。':'研究への参加受付は準備中です。アプリの使い方は、受付前でもご覧いただけます。')+'</p><button class="secondary" onclick="go(\'notice\')">参加案内・アンケート</button></section>';
+ app.innerHTML=head('設定')+guideEntryHTML()+'<section class="card"><h2>研究への参加</h2><p>'+(typeof researchConfig!=='undefined'&&researchConfig.enabled?'研究説明と同意、アンケートは参加案内から確認できます。':'研究への参加受付は準備中です。アプリの使い方は、受付前でもご覧いただけます。')+'</p><button class="secondary" onclick="go(\'notice\')">参加案内・アンケート</button></section>'+faqHTML();
 }
 if(new URL(location.href).searchParams.get('page')==='guide'){page='guide';render();}
 
