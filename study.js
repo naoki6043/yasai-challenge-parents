@@ -17,6 +17,7 @@ async function researchRequest(type,extra={}){
 }
 function researchCredential(){return 'K-'+crypto.randomUUID().replace(/-/g,'')+crypto.randomUUID().replace(/-/g,'');}
 function researchNav(){nav.innerHTML=[['home','ホーム'],['notice','アンケート'],['settings','設定']].map(([p,label])=>`<button class="${page===p?'active':''}" onclick="go('${p}')">${label}</button>`).join('');}
+function researchRecoveryEntryHTML(){return `<section class="card"><h2>機種変更・データ復元</h2><p>普段は同じ端末・同じブラウザでご利用ください。機種変更などで以前の参加状況に戻れなくなった場合は、こちらから復元できます。</p><button class="secondary" onclick="go('recovery')">機種変更・データ復元</button></section>`;}
 function researchPreviewHome(){
  originalResearchRender();
  app.insertAdjacentHTML('afterbegin','<section class="card"><p>レシピ一覧はアンケート回答前でもご覧いただけます。詳しい作り方・記録は、当日のT1アンケート回答後に利用できます。</p><button class="secondary" onclick="go(\'notice\')">参加案内・アンケート</button></section>');
@@ -117,7 +118,8 @@ render=function(){
  if(page==='studyQuiz')researchQuiz();else if(page==='spring')researchSpring();else if(page==='springRecipe')springRecipe();else if(page==='studyReport')researchReportPage();else if(page==='learn')researchLearn();else if(page==='studyLesson')researchLesson();else originalResearchRender();
  if(page==='notice')app.insertAdjacentHTML('afterbegin',researchSurveyHTML());
  if(page==='settings'){
-  app.insertAdjacentHTML('afterbegin',`<section class="card"><h2>研究への参加</h2><p>参加登録済みです。アンケートの回答状況は「お知らせ」で確認できます。</p></section>`+(researchConfig.recovery_enabled?researchRecoveryHTML():''));
+  app.insertAdjacentHTML('afterbegin',`<section class="card"><h2>研究への参加</h2><p>参加登録済みです。アンケートの回答状況は「お知らせ」で確認できます。</p></section>`);
+  if(researchConfig.recovery_enabled)app.insertAdjacentHTML('beforeend',researchRecoveryEntryHTML());
  }
  if(researchStatus.gates.learn){
   researchFiveNav();
