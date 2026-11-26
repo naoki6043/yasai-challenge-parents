@@ -1,6 +1,6 @@
 /** 保護者版コピー専用。記録の読み出しAPIは公開しない。 */
 const PARENTS_SHEET_ID = '1mvyWp_CxPcO4_QRbY8bqiXoEWW5XxMpp9ApaH4XdzvM';
-const PARENTS_RECORD_HEADERS = ['participant_id','record_id','recipe_id','料理名','野菜名','日付','子どもの調理参加','子どもの摂取量','portion','状態','change_version','event_id','更新日時'];
+const PARENTS_RECORD_HEADERS = ['participant_id','record_id','recipe_id','料理名','野菜名','日付','子どもの調理参加','子どもの摂取量','portion','状態','change_version','event_id','更新日時','野菜重量(g/人)','推定摂取量(g)','算出方法'];
 
 function parentsSpreadsheet_() {
   return SpreadsheetApp.openById(PARENTS_SHEET_ID);
@@ -78,7 +78,7 @@ function parentsValidateRecord_(event) {
   if(!['record_created','record_updated','record_deleted'].includes(event.type))throw new Error('invalid_type');
   if(!/^P-[A-Za-z0-9-]{8,100}$/.test(event.participant_id||''))throw new Error('invalid_participant');
   if(!/^E-[A-Za-z0-9-]{8,100}$/.test(event.event_id||'')||!/^E-[A-Za-z0-9-]{8,100}$/.test(event.record_id||'')||event.id!==event.record_id)throw new Error('invalid_id');
-  if(!/^R(0[1-9]|[12][0-9]|30)$/.test(event.recipe_id||''))throw new Error('invalid_recipe');
+  if(!/^(R(0[1-9]|[12][0-9]|30)|SS\d{2,4})$/.test(event.recipe_id||''))throw new Error('invalid_recipe');
   if(!['together','helped','none'].includes(event.participation))throw new Error('invalid_participation');
   if(typeof event.portion!=='number'||![0,0.25,0.5,0.75,1].includes(event.portion))throw new Error('invalid_portion');
   if(!/^\d{4}-\d{2}-\d{2}$/.test(event.date||''))throw new Error('invalid_date');
@@ -92,7 +92,8 @@ function parentsValidateRecord_(event) {
 function parentsRecordSheet_(ss,name) {
   let sheet=ss.getSheetByName(name);
   if(!sheet){sheet=ss.insertSheet(name);sheet.getRange(1,1,1,PARENTS_RECORD_HEADERS.length).setValues([PARENTS_RECORD_HEADERS]);sheet.setFrozenRows(1);}
-  const headers=sheet.getRange(1,1,1,PARENTS_RECORD_HEADERS.length).getDisplayValues()[0];
+  let headers=sheet.getRange(1,1,1,PARENTS_RECORD_HEADERS.length).getDisplayValues()[0];
+  if(headers.slice(0,13).join('\t')===PARENTS_RECORD_HEADERS.slice(0,13).join('\t')&&headers.slice(13).every(x=>!x)){sheet.getRange(1,14,1,3).setValues([PARENTS_RECORD_HEADERS.slice(13)]);headers=PARENTS_RECORD_HEADERS.slice();}
   if(headers.join('\t')!==PARENTS_RECORD_HEADERS.join('\t'))throw new Error('record_schema_mismatch');
   return sheet;
 }
@@ -112,11 +113,13 @@ function parentsSaveRecord_(event) {
   const old=index>=0?values[index]:null;
   if(old&&String(old[11])===event.event_id)return {ok:true,event_id:event.event_id,duplicate:true};
   if(old&&Number(old[10])>=version)return {ok:true,event_id:event.event_id,stale:true};
-  const recipe=parentsPublicData_().recipes.find(r=>r.recipe_id===event.recipe_id);
+  let recipe=parentsPublicData_().recipes.find(r=>r.recipe_id===event.recipe_id);
+  if(/^SS/.test(event.recipe_id)){const p=studyParticipant_(event);if(!p.values[7])throw Error('spring_gate');recipe=studySpringRecipes_(ss).find(r=>r.recipe_id===event.recipe_id);}
   if(!recipe)throw new Error('unknown_recipe');
   const participation={together:'一緒に作った',helped:'一部を手伝った',none:'参加していない'}[event.participation];
   const portion={1:'全部',0.75:'3/4',0.5:'半分',0.25:'1/4',0:'食べなかった'}[event.portion];
-  const row=[event.participant_id,event.record_id,event.recipe_id,parentsSafeCell_(recipe['料理名']),parentsSafeCell_(recipe['野菜名']),event.date,participation,portion,event.portion,event.type==='record_deleted'?'削除済み':'有効',version,event.event_id,new Date().toISOString()];
+  const weight=Number(recipe['野菜重量(g)'])/(Number(recipe['何人分'])||1),estimated=Number.isFinite(weight)&&weight>0?Math.round(weight*event.portion*10)/10:'';
+  const row=[event.participant_id,event.record_id,event.recipe_id,parentsSafeCell_(recipe['料理名']),parentsSafeCell_(recipe['野菜名']),event.date,participation,portion,event.portion,event.type==='record_deleted'?'削除済み':'有効',version,event.event_id,new Date().toISOString(),Number.isFinite(weight)&&weight>0?weight:'',estimated,'1人分の野菜重量×摂取割合'];
   // 削除済み行は再送による復活を防ぐため残す。利用画面・公開APIには出さない。
   const range=sheet.getRange(index>=0?index+2:sheet.getLastRow()+1,1,1,row.length);
   range.setNumberFormats([row.map((v,i)=>[8,10].includes(i)?'0.##':'@')]);
