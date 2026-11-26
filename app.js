@@ -136,7 +136,7 @@ function submitProfile(event){
  try{saveProfile(email);}catch(error){$('#profileError').textContent='保存できませんでした。ブラウザの保存容量や設定を確認してください。';}
 }
 function removeProfile(){if(!confirm('アンケート照合用のメール登録を解除しますか？'))return;try{saveProfile('');}catch(error){$('#profileError').textContent='解除を保存できませんでした。もう一度お試しください。';}}
-function settings(){app.innerHTML=head('設定')+(typeof guideEntryHTML==='function'?guideEntryHTML():'')+profileFormHTML()+`<div class="card"><h2>記録の保存について</h2><p>保存した記録は、この端末の同じブラウザで確認できます。</p><p class="note">別の端末への引き継ぎや、消えた記録をアプリに戻す機能はありません。ブラウザのデータを消すと記録を確認できなくなるため、残しておきたい内容は事前に控えてください。</p>${window.ACTION_LOG_API_URL?`<p>利用記録は管理者にも送信されます。送信された記録を、このアプリに読み戻すことはできません。</p><p role="status">${outbox.length?`送信待ちのデータ：${outbox.length}件`:'送信待ちのデータはありません。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信のデータを送信</button>':''}`:'<p>現在、利用記録の送信は行っていません。</p>'}</div>`+faqHTML();}
+function settings(){app.innerHTML=head('設定')+(typeof guideEntryHTML==='function'?guideEntryHTML():'')+profileFormHTML()+`<div class="card"><h2>記録の保存について</h2><p>保存した記録は、この端末の同じブラウザで確認できます。</p><p class="note">機種変更・ブラウザのデータ消去後は、登録メールアドレスで本人確認すると、送信済みの記録を復元できます。未送信の記録は復元できないため、変更前に送信待ちがないことを確認してください。</p>${window.ACTION_LOG_API_URL?`<p>利用記録は管理者にも送信されます。送信済みの記録は、設定の「機種変更・データ復元」から引き継げます。</p><p role="status">${outbox.length?`送信待ちのデータ：${outbox.length}件`:'送信待ちのデータはありません。'}</p>${outbox.length?'<button class="secondary" onclick="syncActionLogs()">未送信のデータを送信</button>':''}`:'<p>現在、利用記録の送信は行っていません。</p>'}</div>`+faqHTML();}
 // Recipe browsing remains local. New record events use a dedicated optional endpoint only.
 function log(){}
 let syncing=false;
