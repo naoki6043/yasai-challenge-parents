@@ -60,7 +60,7 @@ function researchLesson(){
  const l=researchLessons.find(l=>l.lesson_id===researchLessonId);if(!researchStatus?.gates.learn||!l){researchLearn();return;}
  app.innerHTML=`<button class="back" onclick="go('learn')">‹ まなぶにもどる</button>${head(l['タイトル'])}<article class="card"><p>${escapeHtml(l['導入'])}</p>${['学習ポイント1','学習ポイント2','学習ポイント3'].filter(k=>l[k]).map(k=>`<p>${escapeHtml(l[k])}</p>`).join('')}<h2>やってみよう</h2><p>${escapeHtml(l['やってみよう'])}</p><h2>まとめ</h2><p>${escapeHtml(l['まとめ'])}</p>${researchQuizzes.some(q=>q.lesson_id===l.lesson_id)?`<button class="primary" onclick="startResearchQuiz('${l.lesson_id}')">クイズにちょうせん</button>`:''}</article>`;
 }
-function researchRecoveryHTML(){return `<section class="card"><h2>以前の参加者情報に戻る</h2><p>アンケートに登録したメールアドレスへ、確認用リンクを送ります。参加者IDと回答・開放状況に戻れます。料理の記録は復元されません。</p><label for="researchRecoveryEmail">登録メールアドレス</label><input id="researchRecoveryEmail" type="email" autocomplete="email"><button class="secondary" onclick="requestResearchRecovery()" ${researchBusy?'disabled':''}>確認用メールを送る</button><p id="researchRecoveryMessage" role="status"></p></section>`;}
+function researchRecoveryHTML(){return `<section class="card"><h2>機種変更・データ復元</h2><p>アンケートに登録したメールアドレスへ、確認用リンクを送ります。同じ参加者ID・アンケート回答状況・利用できる機能・送信済みの料理記録を引き継げます。未送信の記録は復元できません。メールのリンクは、今後アプリを使うSafari／Chromeで開いてください。</p><label for="researchRecoveryEmail">登録メールアドレス</label><input id="researchRecoveryEmail" type="email" autocomplete="email"><button class="secondary" onclick="requestResearchRecovery()" ${researchBusy?'disabled':''}>確認用メールを送る</button><p id="researchRecoveryMessage" role="status"></p></section>`;}
 const originalResearchProfileFormHTML=profileFormHTML;
 profileFormHTML=function(){
  if(window.STUDY_MODE!==true&&!researchConfig.enabled)return originalResearchProfileFormHTML();
@@ -79,17 +79,27 @@ async function requestResearchRecovery(){
  if(researchBusy)return;researchBusy=true;
  try{const result=await researchRequest('study_recovery_request',{email});$('#researchRecoveryMessage').textContent=result.message;}catch(e){$('#researchRecoveryMessage').textContent=e.message;}finally{researchBusy=false;}
 }
+function mergeRecoveredRecords(remote,deleted,local,pending,keepLocal){
+ const live=new Map((remote||[]).map(r=>[r.id,{...r}])),versions=new Map((remote||[]).map(r=>[r.id,Number(r.change_version)||0]));
+ for(const d of deleted||[]){if((Number(d.change_version)||0)>=(versions.get(d.id)||0)){live.delete(d.id);versions.set(d.id,Number(d.change_version)||0);}}
+ if(keepLocal){for(const e of [...pending].sort((a,b)=>Number(a.change_version)-Number(b.change_version))){const id=e.record_id||e.id,v=Number(e.change_version)||0;if(v<=(versions.get(id)||0))continue;versions.set(id,v);if(e.type==='record_deleted')live.delete(id);else if(['record_created','record_updated'].includes(e.type)){const r=local.find(x=>x.id===id)||e;live.set(id,{id,recipe_id:r.recipe_id,recipe:r.recipe,veg:r.veg,date:r.date,participation:r.participation,portion:r.portion,createdAt:r.createdAt||v,updatedAt:r.updatedAt||v});}}}
+ return [...live.values()];
+}
 async function completeResearchRecovery(){
  if(researchBusy)return;
- if(records.length&&!confirm('別の参加者情報へ戻る場合、この端末の現在の記録は退避し、一覧から外します。料理の記録は復元されません。続けますか？'))return;
+ if(records.length&&!confirm('送信済みの記録とアンケート回答状況を復元します。別の登録へ戻る場合、この端末の現在の記録は退避します。続けますか？'))return;
  researchBusy=true;researchError='';
  try{
-  const credential=researchCredential(),result=await researchRequest('study_recovery_complete',{token:researchRestoreToken,credential});
-  const previousId=getParticipantId();
-  if(previousId!==result.participant_id){save('beforeRecovery-'+Date.now(),{participant_id:previousId,records,outbox,profile});records=[];outbox=[];profile={email:''};save('state',{records,outbox,lastChangeVersion,profile});}
-  researchCredentials={participant_id:result.participant_id,credential};save('participantId',result.participant_id);save('studyCredentials',researchCredentials);researchStatus=result;researchRestoreToken='';page='notice';
+  const credential=researchCredential(),result=await researchRequest('study_recovery_complete',{token:researchRestoreToken,credential}),previousId=getParticipantId(),same=previousId===result.participant_id;
+  if(!same&&(records.length||outbox.length))save('beforeRecovery-'+Date.now(),{participant_id:previousId,records,outbox,profile});
+  const nextRecords=mergeRecoveredRecords(result.records,result.deleted_records,records,outbox,same),nextOutbox=same?outbox:[],nextProfile=same?profile:{email:''};
+  const nextVersion=Math.max(lastChangeVersion,Number(result.last_change_version)||0);
+  save('state',{records:nextRecords,outbox:nextOutbox,lastChangeVersion:nextVersion,profile:nextProfile});save('studyCredentials',{participant_id:result.participant_id,credential});save('participantId',result.participant_id);
+  records=nextRecords;outbox=nextOutbox;profile=nextProfile;lastChangeVersion=nextVersion;researchCredentials={participant_id:result.participant_id,credential};researchStatus=result;researchRestoreToken='';flash='アンケート回答状況と送信済みの記録を復元しました。';page='notice';
+  if(result.gates.learn){const content=await researchRequest('study_content');researchLessons=content.lessons||[];researchApplyExtension(content);}
  }catch(e){researchError=e.message;}finally{researchBusy=false;render();if(researchStatus?.gates.app)syncActionLogs();}
 }
+
 const originalResearchRender=render;
 function researchFiveNav(){
  nav.innerHTML=[['home','⌂','ホーム'],['learn','📖','まなぶ'],['record','▣','記録'],['notice','🔔','お知らせ'],['settings','⚙','設定']].map(([p,icon,label])=>`<button class="${page===p||['studyLesson','studyQuiz'].includes(page)&&p==='learn'||page==='guide'&&p==='settings'?'active':''}" onclick="go('${p}')"><b>${icon}</b>${label}</button>`).join('');nav.classList.add('researchFiveNav');
@@ -101,6 +111,7 @@ render=function(){
  if(window.STUDY_MODE===true&&!researchInitialized){app.innerHTML=head(appTitle())+'<section class="card"><p>参加案内を確認しています。</p><button class="secondary" onclick="location.reload()">再読み込み</button></section>';researchNav();return;}
  if(!researchConfig.enabled){if(window.STUDY_MODE===true)researchHold();else originalResearchRender();return;}
  if(researchRestoreToken){app.innerHTML=head('参加者情報の復帰')+`<section class="card"><p>メールの確認リンクから、以前の参加者情報へ戻ります。</p><button class="primary" onclick="completeResearchRecovery()" ${researchBusy?'disabled':''}>参加者情報に戻る</button>${researchFeedback()}</section>`;nav.innerHTML='';return;}
+ if(page==='recovery'){app.innerHTML=head('機種変更・データ復元')+researchRecoveryHTML();researchNav();return;}
  if(!researchStatus){researchConsent();return;}
  if(!researchStatus.gates.app&&page!=='settings'){app.innerHTML=head(appTitle(),'アンケートへのご協力をお願いします')+researchSurveyHTML();researchNav();return;}
  if(page==='studyQuiz')researchQuiz();else if(page==='spring')researchSpring();else if(page==='springRecipe')springRecipe();else if(page==='studyReport')researchReportPage();else if(page==='learn')researchLearn();else if(page==='studyLesson')researchLesson();else originalResearchRender();
@@ -125,7 +136,11 @@ let researchQuizzes=[],researchSpringRecipes=[],researchQuizLesson='',researchQu
 function researchApplyExtension(content){
  researchQuizzes=Array.isArray(content.quizzes)?content.quizzes:[];
  researchSpringRecipes=Array.isArray(content.spring_recipes)?content.spring_recipes:[];
- for(const r of researchSpringRecipes){if(/^SS\d{2,4}$/.test(r.recipe_id))recipeIds[r['料理名']]=r.recipe_id;}
+}
+// Add spring options only while rendering history; keep the public AW recipe registry intact.
+if(typeof record==='function'){
+ const originalStudyRecordView=record;
+ record=function(){const added=[];for(const r of researchSpringRecipes){if(/^SS\d{2,4}$/.test(r.recipe_id)&&!Object.prototype.hasOwnProperty.call(recipeIds,r['料理名'])){recipeIds[r['料理名']]=r.recipe_id;added.push(r['料理名']);}}try{return originalStudyRecordView();}finally{added.forEach(name=>delete recipeIds[name]);}};
 }
 function researchQuizItems(){return researchQuizzes.filter(q=>q.lesson_id===researchQuizLesson&&/^Q_[A-Z0-9_]+$/.test(q.question_id));}
 function startResearchQuiz(id){
